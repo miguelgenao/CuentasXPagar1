@@ -4,7 +4,16 @@
     ViewData["Title"] = "Index";
 }
 
-<h1>Index</h1>
+<div>
+    <div class="row">
+        <div class="col-sm-6">
+            <h1>Index</h1>
+        </div>
+        <div class="col-sm-6" style="text-align: end; ">
+            <a class="btn-primary" asp-action="AddUpdateTransaccion" style="padding:5px;">Contabilizar</a>
+        </div>
+    </div>
+</div>
 
 <p>
     @*<a asp-action="Create">Create New</a>*@
@@ -61,11 +70,7 @@
                 @Html.DisplayFor(modelItem => item.AsientoId)
             </td>
             <td>
-                @*<a asp-action="Edit" asp-route-id="@item.Id">Edit</a> |*@
                 <a asp-action="Details" asp-route-id="@item.Id">Details</a> |
-                
-                <a asp-controller="Contabilizar" asp-action="AddUpdateTransaccion" >Contabilizar</a> |
-                @*<a asp-action="Delete" asp-route-id="@item.Id">Delete</a>*@
             </td>
         </tr>
 }

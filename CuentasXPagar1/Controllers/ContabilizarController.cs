@@ -8,7 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using CuentasXPagar1.Models;
 using System.Net.Http;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System.Text;
+using System.IO;
 
 namespace CuentasXPagar1.Controllers
 {
@@ -31,7 +33,7 @@ namespace CuentasXPagar1.Controllers
         // GET: Transacciones
         public async Task<IActionResult> Index()
         {
-            return View(await _context.Transacciones.ToListAsync());
+            return View(await _context.Transacciones.Where(transaccione => transaccione.AsientoId == null).ToListAsync());
         }
 
         [HttpGet]
@@ -69,35 +71,50 @@ namespace CuentasXPagar1.Controllers
         //    return transaccion;
         //}
 
-        [HttpPost]
-        public async Task<Transaccione> AddUpdateTransaccion(Transaccione transacciones)
+        public async Task<IActionResult> AddUpdateTransaccion()
         {
-
-            var transaccionPost = new TransaccionesPost
-            {
-                descripcion = transacciones.Descripcion,
-                idSistemaAuxiliar = transacciones.AuxiliarId,
-                idCuentaCredito = transacciones.CuentaCr,
-                idCuentDebito = transacciones.CuentasDb,
-                monto = transacciones.Monto,
-
-            };
-
             using (var httpClient = new HttpClient(_clientHandler))
             {
-                StringContent content = new StringContent(JsonConvert.SerializeObject(transaccionPost), Encoding.UTF8, "application/json");
-                
-                dynamic transaccion;
+                IEnumerable<Transaccione> transaccioneList = _context.Transacciones.Where(transaccione => transaccione.AsientoId == null);
 
-                using (var response = await httpClient.PostAsync($"https://contabilidad-api.azurewebsites.net/asientos_contables", content ))
+                foreach (Transaccione transaccione in transaccioneList)
                 {
-                   
-                    string apiResponse = await response.Content.ReadAsStringAsync();
-                    transaccion = JsonConvert.DeserializeObject<Transaccione>(apiResponse);
+
+                    JObject transaccion = new JObject(
+                        new JProperty("descripcion", transaccione.Descripcion),
+                        new JProperty("idSistemaAuxiliar", transaccione.AuxiliarId),
+                        new JProperty("idCuentaCredito", transaccione.CuentaCr),
+                        new JProperty("idCuentDebito", transaccione.CuentasDb),
+                        new JProperty("monto", transaccione.Monto)
+                    );
+
+                    StringContent content = new StringContent(transaccion.ToString(), Encoding.UTF8, "application/json");
+
+                    using (var response = await httpClient.PostAsync($"https://contabilidad-api.azurewebsites.net/asientos_contables", content))
+                    {
+                        using (var apiResponse = await response.Content.ReadAsStreamAsync())
+                        {
+                            StreamReader reader = new StreamReader(apiResponse);
+                            JObject asientoContable = JObject.Parse(reader.ReadToEnd());
+
+                            transaccione.AsientoId = (int)asientoContable["id"];
+
+                            try
+                            {
+                                _context.Update(transaccione);
+                            }
+                            catch (DbUpdateConcurrencyException)
+                            {
+
+                            }
+                        }
+                    }
                 }
             }
-            Console.WriteLine(transaccion);
-            return transaccion;
+
+            await _context.SaveChangesAsync();
+
+            return View("Index", await _context.Transacciones.Where(transaccione => transaccione.AsientoId == null).ToListAsync());
         }
 
         // GET: Transacciones/Details/5
